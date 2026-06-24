@@ -1,51 +1,188 @@
-const express = require('express');
-const mysql = require('mysql2');
-const cors = require('cors');
-require('dotenv').config();
+const express = require("express");
+const sqlite3 = require("sqlite3").verbose();
+const cors = require("cors");
 
 const app = express();
-app.use(cors()); // Allows your React app to talk to this server
+
+app.use(cors());
 app.use(express.json());
 
-// 1. Connect to MySQL
-const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',      // Your MySQL username
-    password: 'password', // Your MySQL password
-    database: 'book_recommendation'
+// ================= DATABASE =================
+
+const db = new sqlite3.Database("./database/bookwise.db", (err) => {
+  if (err) {
+    console.error(err.message);
+  } else {
+    console.log("Connected to SQLite Database!");
+  }
 });
 
-db.connect(err => {
-    if (err) console.error('Database connection failed: ' + err.stack);
-    else console.log('Connected to MySQL Database!');
+// ================= USERS TABLE =================
+
+db.run(`
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
+  email TEXT UNIQUE,
+  favorite_genre TEXT
+)
+`);
+
+// ================= BOOKS TABLE =================
+
+db.run(`
+CREATE TABLE IF NOT EXISTS books (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT,
+  author TEXT,
+  genre TEXT,
+  image_url TEXT
+)
+`);
+
+// ================= SAMPLE USER =================
+
+db.run(`
+INSERT OR IGNORE INTO users
+(id,name,email,favorite_genre)
+VALUES
+(
+1,
+'Sadiya',
+'sadiya@email.com',
+'Self Help'
+)
+`);
+
+// ================= SAMPLE BOOKS =================
+
+db.run(`
+INSERT OR IGNORE INTO books
+(id,title,author,genre,image_url)
+VALUES
+
+(
+1,
+'Atomic Habits',
+'James Clear',
+'Self Help',
+'https://covers.openlibrary.org/b/id/10521270-L.jpg'
+),
+
+(
+2,
+'The Alchemist',
+'Paulo Coelho',
+'Fiction',
+'https://covers.openlibrary.org/b/id/8231856-L.jpg'
+),
+
+(
+3,
+'Deep Work',
+'Cal Newport',
+'Productivity',
+'https://covers.openlibrary.org/b/id/10594765-L.jpg'
+),
+
+(
+4,
+'The Power of Habit',
+'Charles Duhigg',
+'Self Help',
+'https://covers.openlibrary.org/b/id/6979861-L.jpg'
+),
+
+(
+5,
+'Think and Grow Rich',
+'Napoleon Hill',
+'Self Help',
+'https://covers.openlibrary.org/b/id/7222246-L.jpg'
+)
+`);
+
+// ================= GET ALL BOOKS =================
+
+app.get("/api/books", (req, res) => {
+  db.all("SELECT * FROM books", [], (err, rows) => {
+    if (err) {
+      return res.status(500).json(err);
+    }
+
+    res.json(rows);
+  });
 });
 
-// 2. API to get all books
-app.get('/api/books', (req, res) => {
-    db.query('SELECT * FROM books', (err, results) => {
-        if (err) return res.status(500).json(err);
-        res.json(results);
-    });
+// ================= LOGIN =================
+
+app.post("/api/login", (req, res) => {
+  const { email } = req.body;
+
+  db.get(
+    "SELECT * FROM users WHERE email = ?",
+    [email],
+    (err, user) => {
+      if (err) {
+        return res.status(500).json(err);
+      }
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      res.json({
+        success: true,
+        user,
+      });
+    }
+  );
 });
 
-// 3. API for Recommendations based on User 1's favorite genre
-app.get('/api/recommendations/:userId', (req, res) => {
-    const userId = req.params.userId;
-    const query = `
-        SELECT b.* FROM books b 
-        WHERE b.genre = (
-            SELECT b2.genre FROM user_history uh 
-            JOIN books b2 ON uh.book_id = b2.book_id 
-            WHERE uh.user_id = ? 
-            GROUP BY b2.genre ORDER BY COUNT(*) DESC LIMIT 1
-        ) 
-        AND b.book_id NOT IN (SELECT book_id FROM user_history WHERE user_id = ?)`;
+// ================= RECOMMENDATIONS =================
 
-    db.query(query, [userId, userId], (err, results) => {
-        if (err) return res.status(500).json(err);
-        res.json(results);
-    });
+app.get("/api/recommendations/:userId", (req, res) => {
+  const userId = req.params.userId;
+
+  db.get(
+    "SELECT favorite_genre FROM users WHERE id = ?",
+    [userId],
+    (err, user) => {
+      if (err) {
+        return res.status(500).json(err);
+      }
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      db.all(
+        "SELECT * FROM books WHERE genre = ?",
+        [user.favorite_genre],
+        (err, books) => {
+          if (err) {
+            return res.status(500).json(err);
+          }
+
+          res.json(books);
+        }
+      );
+    }
+  );
 });
+
+// ================= SERVER =================
 
 const PORT = 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.get("/test123", (req, res) => {
+  res.send("Route is working");
+});
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
