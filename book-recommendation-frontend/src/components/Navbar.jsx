@@ -1,83 +1,180 @@
-import React, { useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+/**
+ * Navbar.jsx — BookWise Global Navigation Architecture (Context Fixed)
+ * Stack: React + Tailwind v4 + Native CSS Micro-Interactions
+ */
+
+import React, { useState, useContext } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { UserContext } from '../context/UserContext';
 
 const Navbar = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  const location = useLocation();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // Directly wiring to your real live application UserContext
+  const { user, logout } = useContext(UserContext);
 
-  // This helper function keeps our code clean by managing the active vs inactive styles
-  const navLinkStyles = ({ isActive }) => 
-    `text-sm font-semibold transition-all duration-300 ${
-      isActive 
-        ? 'text-blue-600 border-b-2 border-blue-600 pb-1' 
-        : 'text-gray-600 hover:text-blue-600'
-    }`;
+  const handleLogout = () => {
+    if (logout) {
+      logout();
+    }
+    console.log('Sealing registers...');
+  };
 
   return (
-    <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-20 items-center">
-          
-          {/* Logo Section */}
-          <Link to="/" className="flex items-center gap-3 group">
-            <div className="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-200 group-hover:rotate-12 transition-transform duration-300">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-            </div>
-            <span className="text-2xl font-black text-gray-900 tracking-tight">
-              Book<span className="text-blue-600">Wise</span>
-            </span>
-          </Link>
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-[#F8F3EA]/90 backdrop-blur-md border-b border-[#3E3024]/5 py-4 px-6 transition-all duration-300">
+      <div className="max-w-6xl mx-auto flex items-center justify-between">
+        
+        {/* Main Logo Block */}
+        <Link to={user ? "/dashboard" : "/"} className="flex items-center gap-2.5 group">
+          <span className="text-xl transition-transform group-hover:rotate-12 duration-300">📜</span>
+          <span className="font-serif font-black text-xl text-[#3E3024] tracking-tight">
+            Book<span className="text-[#556B2F]">Wise</span>
+          </span>
+        </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-10">
-            {/* NavLink automatically injects the 'isActive' boolean */}
-            <NavLink to="/" className={navLinkStyles}>
-              Library
-            </NavLink>
-            <NavLink to="/categories" className={navLinkStyles}>
-              Categories
-            </NavLink>
-            <NavLink to="/picks" className={navLinkStyles}>
-              My Picks
-            </NavLink>
-            
-            <NavLink 
-              to="/login" 
-              className={({ isActive }) => 
-                `px-7 py-3 rounded-2xl font-bold transition-all active:scale-95 text-sm ${
-                  isActive 
-                  ? 'bg-blue-600 text-white shadow-xl shadow-blue-100' 
-                  : 'bg-gray-900 text-white hover:bg-blue-600'
-                }`
-              }
-            >
-              Sign In
-            </NavLink>
-          </div>
-
-          {/* Mobile Menu Button */}
-          <div className="md:hidden">
-            <button onClick={() => setIsOpen(!isOpen)} className="text-gray-600 p-2">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {isOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
-            </button>
-          </div>
+        {/* ─── DESKTOP NAVIGATION LINKS ────────────────────────────────────── */}
+        <div className="hidden md:flex items-center gap-8">
+          {!user ? (
+            // Public Dynamic Menu Links
+            <>
+              {['Shelves', 'Method', 'Journal', 'FAQ'].map((link) => (
+                <a
+                  key={link}
+                  href={`/#${link.toLowerCase().replace(/\s/g, '-')}`}
+                  className="font-sans text-xs font-bold text-[#3E3024]/70 hover:text-[#3E3024] tracking-widest uppercase relative py-1 navbar-ink-underline transition-colors"
+                >
+                  {link}
+                </a>
+              ))}
+            </>
+          ) : (
+            // Protected Logged In Links
+            <>
+              {[
+                { name: 'Dashboard', path: '/dashboard', icon: '📖' },
+                { name: 'Library', path: '/home', icon: '🪵' }, // Pointing to your Home.jsx file route
+                { name: 'Favorites', path: '/favorites', icon: '❤️' },
+                { name: 'Diary Profile', path: '/profile', icon: '🌸' },
+              ].map((link) => (
+                <Link
+                  key={link.name}
+                  to={link.path}
+                  className={`font-sans text-xs font-bold tracking-widest uppercase flex items-center gap-1.5 py-1 relative navbar-ink-underline transition-colors ${
+                    location.pathname === link.path ? 'text-[#B66A50]' : 'text-[#3E3024]/70 hover:text-[#3E3024]'
+                  }`}
+                >
+                  <span>{link.icon}</span>
+                  {link.name}
+                </Link>
+              ))}
+            </>
+          )}
         </div>
+
+        {/* ─── ACTION ACCESS CORNER ────────────────────────────────────────── */}
+        <div className="hidden md:flex items-center gap-5">
+          {!user ? (
+            <>
+              <Link to="/login" className="font-sans text-xs font-bold text-[#3E3024]/70 hover:text-[#3E3024] transition-colors">
+                Sign In
+              </Link>
+              <Link to="/login" className="font-sans text-xs font-bold px-4 py-2.5 rounded-full bg-[#556B2F] text-[#F8F3EA] hover:bg-[#435524] transition-all shadow-sm active:scale-98">
+                Enter Sanctuary
+              </Link>
+            </>
+          ) : (
+            <div className="flex items-center gap-4 border-l border-[#3E3024]/10 pl-4">
+              <Link to="/profile" className="flex items-center gap-2 group">
+                <div className="w-7 h-7 rounded-lg bg-[#F3E6D0] border border-[#3E3024]/10 flex items-center justify-center font-serif text-xs font-bold text-[#3E3024] shadow-2xs group-hover:bg-[#A3B18A]/20 transition-colors">
+                  {user.name ? user.name.charAt(0).toUpperCase() : 'R'}
+                </div>
+                <span className="font-sans text-xs font-bold text-[#3E3024]/80 group-hover:text-[#3E3024] transition-colors max-w-[80px] truncate">
+                  {user.name || 'Reader'}
+                </span>
+              </Link>
+              <button 
+                onClick={handleLogout} 
+                className="font-sans text-[10px] font-bold text-[#B66A50] hover:text-[#A25B42] uppercase tracking-wider bg-[#B66A50]/5 border border-[#B66A50]/10 px-2.5 py-1 rounded-md cursor-pointer transition-all"
+              >
+                Seal Journal
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Mobile menu trigger */}
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="md:hidden p-1.5 rounded-lg border border-[#3E3024]/10 text-[#3E3024]/80 hover:text-[#3E3024] cursor-pointer"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {isMobileMenuOpen ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+            )}
+          </svg>
+        </button>
       </div>
 
-      {/* Mobile Menu */}
-      {isOpen && (
-        <div className="md:hidden bg-white border-b border-gray-100 p-4 space-y-2">
-          <NavLink to="/" onClick={() => setIsOpen(false)} className="block px-4 py-3 text-gray-700 font-semibold rounded-xl hover:bg-blue-50">Library</NavLink>
-          <NavLink to="/login" onClick={() => setIsOpen(false)} className="block px-4 py-3 bg-blue-600 text-white font-bold rounded-xl text-center">Sign In</NavLink>
+      {/* Flyout mobile wrapper overlay sheet */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden mt-4 pt-4 border-t border-[#3E3024]/5 space-y-3">
+          {!user ? (
+            <>
+              {['Shelves', 'Method', 'Journal', 'FAQ'].map((link) => (
+                <a
+                  key={link}
+                  href={`/#${link.toLowerCase().replace(/\s/g, '-')}`}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="block font-sans text-xs font-bold text-[#3E3024]/70 hover:text-[#3E3024] uppercase tracking-wider py-1.5"
+                >
+                  {link}
+                </a>
+              ))}
+            </>
+          ) : (
+            <>
+              {[
+                { name: 'Dashboard', path: '/dashboard', icon: '📖' },
+                { name: 'Library', path: '/home', icon: '🪵' },
+                { name: 'Favorites', path: '/favorites', icon: '❤️' },
+                { name: 'Diary Profile', path: '/profile', icon: '🌸' },
+              ].map((link) => (
+                <Link
+                  key={link.name}
+                  to={link.path}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`block font-sans text-xs font-bold uppercase tracking-wider py-1.5 flex items-center gap-2 ${
+                    location.pathname === link.path ? 'text-[#B66A50]' : 'text-[#3E3024]/70'
+                  }`}
+                >
+                  <span>{link.icon}</span>
+                  {link.name}
+                </Link>
+              ))}
+            </>
+          )}
         </div>
       )}
+
+      <style>{`
+        .navbar-ink-underline::after {
+          content: '';
+          position: absolute;
+          bottom: -2px;
+          left: 50%;
+          width: 0;
+          height: 1.5px;
+          background-color: #B66A50;
+          transition: width 0.3s ease, left 0.3s ease;
+        }
+        .navbar-ink-underline:hover::after {
+          width: 80%;
+          left: 10%;
+        }
+      `}</style>
     </nav>
   );
 };

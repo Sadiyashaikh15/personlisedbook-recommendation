@@ -40,6 +40,20 @@ CREATE TABLE IF NOT EXISTS books (
 )
 `);
 
+// ================= FAVORITES TABLE =================
+
+db.run(`
+CREATE TABLE IF NOT EXISTS favorites (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  book_id INTEGER NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, book_id),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (book_id) REFERENCES books(id)
+)
+`);
+
 // ================= SAMPLE USER =================
 
 db.run(`
@@ -109,8 +123,53 @@ app.get("/api/books", (req, res) => {
     if (err) {
       return res.status(500).json(err);
     }
-
     res.json(rows);
+  });
+});
+
+// ================= GET BOOK BY ID =================
+
+app.get("/api/books/:id", (req, res) => {
+  const { id } = req.params;
+
+  db.get("SELECT * FROM books WHERE id = ?", [id], (err, book) => {
+    if (err) {
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+
+    if (!book) {
+      return res.status(404).json({ success: false, message: "Book not found" });
+    }
+
+    res.json({ success: true, book });
+  });
+});
+
+// ================= GET RELATED BOOKS =================
+
+app.get("/api/books/:id/related", (req, res) => {
+  const { id } = req.params;
+
+  db.get("SELECT genre FROM books WHERE id = ?", [id], (err, book) => {
+    if (err) {
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+
+    if (!book) {
+      return res.status(404).json({ success: false, message: "Book not found" });
+    }
+
+    db.all(
+      "SELECT * FROM books WHERE genre = ? AND id != ? LIMIT 4",
+      [book.genre, id],
+      (err, related) => {
+        if (err) {
+          return res.status(500).json({ success: false, message: "Server error" });
+        }
+
+        res.json({ success: true, books: related });
+      }
+    );
   });
 });
 
@@ -173,6 +232,81 @@ app.get("/api/recommendations/:userId", (req, res) => {
           res.json(books);
         }
       );
+    }
+  );
+});
+
+// ================= ADD FAVORITE =================
+
+app.post("/api/favorites", (req, res) => {
+  const { user_id, book_id } = req.body;
+
+  if (!user_id || !book_id) {
+    return res.status(400).json({ success: false, message: "user_id and book_id are required" });
+  }
+
+  db.run(
+    "INSERT OR IGNORE INTO favorites (user_id, book_id) VALUES (?, ?)",
+    [user_id, book_id],
+    function (err) {
+      if (err) {
+        return res.status(500).json({ success: false, message: "Server error" });
+      }
+
+      if (this.changes === 0) {
+        return res.status(409).json({ success: false, message: "Already in favorites" });
+      }
+
+      res.json({ success: true, message: "Added to favorites", id: this.lastID });
+    }
+  );
+});
+
+// ================= GET FAVORITES =================
+
+app.get("/api/favorites/:userId", (req, res) => {
+  const { userId } = req.params;
+
+  db.all(
+    `SELECT books.*, favorites.id as favorite_id, favorites.created_at as favorited_at
+     FROM favorites
+     JOIN books ON favorites.book_id = books.id
+     WHERE favorites.user_id = ?
+     ORDER BY favorites.created_at DESC`,
+    [userId],
+    (err, rows) => {
+      if (err) {
+        return res.status(500).json({ success: false, message: "Server error" });
+      }
+
+      res.json({ success: true, favorites: rows });
+    }
+  );
+});
+
+// ================= REMOVE FAVORITE =================
+
+app.delete("/api/favorites/:bookId", (req, res) => {
+  const { bookId } = req.params;
+  const { user_id } = req.body;
+
+  if (!user_id) {
+    return res.status(400).json({ success: false, message: "user_id is required" });
+  }
+
+  db.run(
+    "DELETE FROM favorites WHERE user_id = ? AND book_id = ?",
+    [user_id, bookId],
+    function (err) {
+      if (err) {
+        return res.status(500).json({ success: false, message: "Server error" });
+      }
+
+      if (this.changes === 0) {
+        return res.status(404).json({ success: false, message: "Favorite not found" });
+      }
+
+      res.json({ success: true, message: "Removed from favorites" });
     }
   );
 });
